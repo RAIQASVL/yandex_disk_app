@@ -1,9 +1,7 @@
-from django.contrib import admin
-from django.urls import path, include
-from . import views
-
-app_name = "disk"
+from django.urls import path
+from .views import FileListView, download_file
 
 urlpatterns = [
-    path("file-list/", views.FileListView.as_view(), name="file_list"),
+    path("", FileListView.as_view(), name="file_list"),
+    path("download/<str:public_key>/<path:path>/", download_file, name="download_file"),
 ]

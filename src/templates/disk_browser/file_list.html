@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Yandex.Disk Browser</h1>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Browse Files</button>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if files %}
+    <div class="card">
+        <div class="card-header">
+            Files
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <td>{{ file.name }}</td>
+                            <td>{{ file.type }}</td>
+                            <td>{{ file.size|filesizeformat }}</td>
+                            <td>{{ file.modified }}</td>
+                            <td>
+                                {% if file.type == "file" %}
+                                    {% url 'download_file' public_key=public_key path=file.path as download_url %}
+                                <a href="{{ download_url }}" class="btn btn-sm btn-primary">
+                                    Download
+                                </a>
+                                {% else %}
+                                    <span>N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -22,7 +22,7 @@ class CustomLoginView(LoginView):
     template_name = "login.html"
 
     def form_valid(self, form):
-        remember_me = form.changed_data.get("remember_me")
+        remember_me = "remember_me" in form.changed_data
         if not remember_me:
             # Session will be clear for closing browser
             self.request.session.set_expiry(0)
