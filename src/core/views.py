@@ -8,7 +8,7 @@ from .forms import SignUpForm, CustomAuthenticationForm
 
 class SignUpView(CreateView):
     form_class = SignUpForm
-    template_name = "core/signup.html"
+    template_name = "signup.html"
     success_url = reverse_lazy("disk:file_list")
 
     def form_valid(self, form):
@@ -19,7 +19,7 @@ class SignUpView(CreateView):
 
 class CustomLoginView(LoginView):
     form_class = CustomAuthenticationForm
-    template_name = "core/login.html"
+    template_name = "login.html"
 
     def form_valid(self, form):
         remember_me = form.changed_data.get("remember_me")
