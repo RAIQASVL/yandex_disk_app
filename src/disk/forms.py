@@ -13,6 +13,18 @@ class PublicLinkForm(forms.Form):
             }
         ),
     )
+    file_type = forms.ChoiceField(
+        label=_("File Type"),
+        required=False,
+        choices=[
+            ("", "All Files"),
+            ("document", "Documents"),
+            ("image", "Images"),
+            ("video", "Videos"),
+            ("audio", "Audio"),
+        ],
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
 
     def clean_public_key(self):
         """Extract public key from full URL if needed."""

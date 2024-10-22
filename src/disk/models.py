@@ -8,7 +8,7 @@ User = get_user_model()
 class PublicLink(models.Model):
     """Model for storing public Yandex.Disk links."""
 
-    publick_key = models.CharField(
+    public_key = models.CharField(
         _("Public Key"), max_length=255, help_text=("Yandex.Disk public link key")
     )
     user = models.ForeignKey(
@@ -26,4 +26,4 @@ class PublicLink(models.Model):
         ordering = ["-last_accessed"]
 
     def __str__(self):
-        return f"{self.publick_key} ({self.user.username})"
+        return f"{self.public_key} ({self.user.username})"

@@ -1,7 +1,11 @@
 from django.urls import path
-from .views import FileListView, download_file
+from .views import FileListView, download_files
 
 urlpatterns = [
     path("", FileListView.as_view(), name="file_list"),
-    path("download/<str:public_key>/<path:path>/", download_file, name="download_file"),
+    path(
+        "download_files/",
+        download_files,
+        name="download_files",
+    ),
 ]

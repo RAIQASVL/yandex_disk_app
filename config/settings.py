@@ -29,7 +29,12 @@ SECRET_KEY = "DJANGO_SECRET_KEY"
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+STREAM_RESPONSE = True
+
 ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]
+
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins (or restrict to specific domains)
+
 
 # Application definition
 
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     # Third party
     "crispy_forms",
     "crispy_bootstrap5",
@@ -56,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -140,3 +147,10 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 LOGIN_REDIRECT_URL = "disk:file_list"
 LOGOUT_REDIRECT_URL = "login"
 LOGIN_URL = "login"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "yandex-disk-cache",
+    }
+}

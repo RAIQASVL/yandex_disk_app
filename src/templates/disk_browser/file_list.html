@@ -1,66 +1,187 @@
-{% extends "base.html" %}
-{% load static %}
-
-{% block content %}
+{% extends "base.html" %} {% load static %} {% block content %}
 <div class="container mt-4">
-    <h1>Yandex.Disk Browser</h1>
-    
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="form-inline">
-                {{ form.as_p }}
-                <button type="submit" class="btn btn-primary">Browse Files</button>
-            </form>
-        </div>
-    </div>
+  <h1>Yandex.Disk Browser</h1>
 
-    {% if error %}
-    <div class="alert alert-danger">
-        {{ error }}
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="form-inline">
+        <div class="row">
+          <div class="col-md-6">{{ form.public_key }}</div>
+          <div class="col-md-4">{{ form.file_type }}</div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+              Browse Files
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
-    {% endif %}
+  </div>
 
-    {% if files %}
-    <div class="card">
-        <div class="card-header">
-            Files
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Size</th>
-                            <th>Modified</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for file in files %}
-                        <tr>
-                            <td>{{ file.name }}</td>
-                            <td>{{ file.type }}</td>
-                            <td>{{ file.size|filesizeformat }}</td>
-                            <td>{{ file.modified }}</td>
-                            <td>
-                                {% if file.type == "file" %}
-                                    {% url 'download_file' public_key=public_key path=file.path as download_url %}
-                                <a href="{{ download_url }}" class="btn btn-sm btn-primary">
-                                    Download
-                                </a>
-                                {% else %}
-                                    <span>N/A</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %} {% if files %}
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Files</span>
+      <button id="downloadSelected" class="btn btn-success" disabled>
+        Download Selected
+      </button>
     </div>
-    {% endif %}
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  id="selectAll"
+                  class="form-check-input"
+                />
+              </th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Size</th>
+              <th>Modified</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for file in files %}
+            <tr>
+              <td>
+                {% if file.type == "file" %}
+                <input
+                  type="checkbox"
+                  class="form-check-input file-checkbox"
+                  data-path="{{ file.path }}"
+                  data-name="{{ file.name }}"
+                />
+                {% endif %}
+              </td>
+              <td>{{ file.name }}</td>
+              <td>{{ file.type }}</td>
+              <td>{{ file.size|filesizeformat }}</td>
+              <td>{{ file.modified }}</td>
+              <td>
+                {% if file.type == "file" %}
+                <button
+                  class="btn btn-sm btn-primary download-single"
+                  data-path="{{ file.path }}"
+                  data-public-key="{{ public_key }}"
+                >
+                  Download
+                </button>
+                {% else %}
+                <span>N/A</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
-{% endblock %}
+
+{% if files %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const selectAll = document.getElementById("selectAll");
+    const fileCheckboxes = document.querySelectorAll(".file-checkbox");
+    const downloadSelectedBtn = document.getElementById("downloadSelected");
+
+    // Handle "Select All" checkbox
+    selectAll.addEventListener("change", function () {
+      fileCheckboxes.forEach((checkbox) => {
+        checkbox.checked = this.checked;
+      });
+      updateDownloadButton();
+    });
+
+    // Handle individual checkboxes
+    fileCheckboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", updateDownloadButton);
+    });
+
+    // Update download button state
+    function updateDownloadButton() {
+      const selectedCount = document.querySelectorAll(
+        ".file-checkbox:checked"
+      ).length;
+      downloadSelectedBtn.disabled = selectedCount === 0;
+      downloadSelectedBtn.textContent = `Download Selected (${selectedCount})`;
+    }
+
+    // Handle single file download
+    document.querySelectorAll(".download-single").forEach((button) => {
+      button.addEventListener("click", function () {
+        const path = this.dataset.path;
+        const publicKey = this.dataset.publicKey;
+        downloadFiles([path], publicKey);
+      });
+    });
+
+    // Handle multiple files download
+    downloadSelectedBtn.addEventListener("click", function () {
+      const selectedPaths = Array.from(
+        document.querySelectorAll(".file-checkbox:checked")
+      ).map((checkbox) => checkbox.dataset.path);
+      const publicKey = "{{ public_key }}";
+      downloadFiles(selectedPaths, publicKey);
+    });
+
+    // Function to handle file downloads
+    function downloadFiles(paths, publicKey) {
+      const formData = new FormData();
+      formData.append("public_key", publicKey);
+      paths.forEach((path) => {
+        formData.append("file_paths[]", path);
+      });
+
+      // Getting CSRF token
+      const csrftoken = document.querySelector(
+        "[name=csrfmiddlewaretoken]"
+      ).value;
+
+      fetch('{% url "disk:download_files" %}', {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-CSRFToken": csrftoken,
+        },
+        credentials: "same-origin", // Important for working with CSRF
+      })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((data) => {
+              throw new Error(data.error || "Download failed");
+            });
+          }
+          return response.blob();
+        })
+        .then((blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download =
+            paths.length > 1
+              ? "yandex_disk_files.zip"
+              : paths[0].split("/").pop();
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          a.remove();
+        })
+        .catch((error) => {
+          console.error("Download error:", error);
+          alert("Error downloading files: " + error.message);
+        });
+    }
+  });
+</script>
+{% csrf_token %} {% endif %} {% endblock %}
