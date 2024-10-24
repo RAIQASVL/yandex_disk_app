@@ -20,6 +20,7 @@ class SignUpView(CreateView):
 class CustomLoginView(LoginView):
     form_class = CustomAuthenticationForm
     template_name = "login.html"
+    success_url = reverse_lazy("disk:file_list")
 
     def form_valid(self, form):
         remember_me = "remember_me" in form.changed_data

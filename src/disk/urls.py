@@ -1,11 +1,8 @@
 from django.urls import path
-from .views import FileListView, download_files
+from src.disk.views import FileListView, stream_file
+
 
 urlpatterns = [
     path("", FileListView.as_view(), name="file_list"),
-    path(
-        "download_files/",
-        download_files,
-        name="download_files",
-    ),
+    path("download_files/", stream_file, name="download_files"),
 ]

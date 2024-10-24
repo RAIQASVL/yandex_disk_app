@@ -1,24 +1,17 @@
-import os
-import logging
-from django.http import HttpResponse
-from django.shortcuts import redirect
-from dotenv import load_dotenv
-import requests
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
-from urllib.parse import quote
+import logging
+import requests
+from urllib.parse import urlparse
+import os
+from django.conf import settings
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Initialize logger
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class YandexDiskFile:
-    """Data class for file information."""
+    """Represents a file in Yandex.Disk."""
 
     name: str
     path: str
@@ -27,130 +20,112 @@ class YandexDiskFile:
     created: str
     modified: str
     mime_type: str
+    download_link: Optional[str] = None
+
+    @property
+    def size_formatted(self) -> str:
+        """Return human-readable file size."""
+        size = self.size
+        for unit in ["B", "KB", "MB", "GB"]:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"
 
 
-class DiskServiceInterface(ABC):
-    """Interface for Yandex.Disk API operations."""
-
-    @abstractmethod
-    def get_public_resources(
-        self, public_key: str, path: Optional[str] = None
-    ) -> List[YandexDiskFile]:
-        """Get list of files from public resource."""
-        pass
-
-    @abstractmethod
-    def get_download_link(self, public_key: str, path: str) -> str:
-        """Get download link for file."""
-        pass
-
-
-class YandexDiskService(DiskServiceInterface):
-    """Implementation of Yandex.Disk API service."""
+class YandexDiskService:
+    """Service for interacting with Yandex.Disk API."""
 
     BASE_URL = "https://cloud-api.yandex.net/v1/disk/public"
 
     def __init__(self):
-        # Load secrets from environment variables
-        self.access_token = os.getenv("YANDEX_OAUTH_TOKEN")
-        if not self.access_token:
-            raise ValueError(
-                "Yandex OAuth token not found. Please set YANDEX_OAUTH_TOKEN in your .env file."
-            )
+        self.token = os.getenv("YANDEX_OAUTH_TOKEN")
+        if not self.token:
+            raise ValueError("Yandex OAuth token not found in environment variables")
 
         self.session = requests.Session()
+        self.session.headers.update(
+            {"Authorization": f"OAuth {self.token}", "Accept": "application/json"}
+        )
+
+    @staticmethod
+    def extract_public_key(url: str) -> str:
+        """Extract public key from Yandex.Disk URL."""
+        try:
+            parsed = urlparse(url)
+            if "disk.yandex" not in parsed.netloc:
+                raise ValueError("Invalid Yandex.Disk URL")
+
+            path_parts = parsed.path.split("/")
+            if "/d/" in parsed.path:
+                return path_parts[-1]
+            elif "/public/" in parsed.path:
+                return path_parts[-1]
+
+            raise ValueError("Could not extract public key from URL")
+        except Exception as e:
+            logger.error(f"Error extracting public key: {e}")
+            raise ValueError(f"Invalid Yandex.Disk URL format: {str(e)}")
 
     def get_public_resources(
-        self, public_key: str, path: Optional[str] = None
+        self, public_url: str, limit: int = 100
     ) -> List[YandexDiskFile]:
-        """Get list of files from public resource."""
-        headers = {"Authorization": f"OAuth {self.access_token}"}
-        params = {"public_key": public_key}
-        if path:
-            params["path"] = path
-
-        logger.debug(
-            f"Requesting public resources with URL: {self.BASE_URL}/resources, params: {params}"
-        )
-
-        # Make a request to the Yandex Disk API
-        response = self.session.get(
-            f"{self.BASE_URL}/resources", headers=headers, params=params
-        )
-
-        # Check for errors in response
+        """Fetch resources from public folder."""
         try:
+            public_key = public_url
+            params = {
+                "public_key": public_key,
+                "limit": limit,
+                "sort": "name",
+                "fields": "name,path,type,size,created,modified,mime_type,_embedded.items",
+            }
+
+            response = self.session.get(f"{self.BASE_URL}/resources", params=params)
             response.raise_for_status()
-        except requests.HTTPError as e:
-            logger.error(
-                f"Failed to fetch public resources: {e}, Response: {response.text}"
-            )
-            raise
 
-        # Parse and collect file information from the response
-        data = response.json()
-        return [
-            YandexDiskFile(
-                name=item["name"],
-                path=item["path"],
-                type=item["type"],
-                size=item["size"],
-                created=item["created"],
-                modified=item["modified"],
-                mime_type=item.get("mime_type", ""),
-            )
-            for item in data.get("_embedded", {}).get("items", [])
-        ]
+            data = response.json()
+            if "_embedded" not in data or "items" not in data["_embedded"]:
+                raise ValueError("Invalid API response format")
 
-    def get_download_link(self, public_key: str, path: str) -> str:
-        """Get download link for file."""
-        headers = {"Authorization": f"OAuth {self.access_token}"}
-        params = {"public_key": public_key, "path": path}
+            files = []
+            for item in data["_embedded"]["items"]:
+                # Get download link for each file
+                download_link = self.get_download_link(public_key, item["path"])
 
-        # Make a request to get the download link
-        response = self.session.get(
-            f"{self.BASE_URL}/resources/download", headers=headers, params=params
-        )
+                files.append(
+                    YandexDiskFile(
+                        name=item["name"],
+                        path=item["path"].lstrip("/"),
+                        type=item["type"],
+                        size=item.get("size", 0),
+                        created=item["created"],
+                        modified=item["modified"],
+                        mime_type=item.get("mime_type", "application/octet-stream"),
+                        download_link=download_link,
+                    )
+                )
 
+            return files
+
+        except requests.RequestException as e:
+            logger.error(f"API request failed: {e}")
+            raise RuntimeError(f"Failed to fetch resources: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error processing resources: {e}")
+            raise RuntimeError(f"Error processing resources: {str(e)}")
+
+    def get_download_link(self, public_key: str, path: str) -> Optional[str]:
+        """Get direct download link for a file."""
         try:
+            params = {"public_key": public_key, "path": path}
+            response = self.session.get(
+                f"{self.BASE_URL}/resources/download", params=params
+            )
             response.raise_for_status()
-        except requests.HTTPError as e:
-            logger.error(f"Failed to get download link: {e}, Response: {response.text}")
-            raise
 
-        return response.json()["href"]
+            data = response.json()
+            return data.get("href")
 
-
-def download_file(request, public_key, path):
-    """View for downloading files."""
-    if not request.user.is_authenticated:
-        return redirect("login")  # Redirect if user is not authenticated
-
-    disk_service = YandexDiskService()
-
-    try:
-        # Get the download link for the requested file
-        download_url = disk_service.get_download_link(public_key, path)
-        logger.debug(f"Attempting to download file from URL: {download_url}")
-
-        # Request the file from the download URL
-        response = requests.get(download_url, stream=True, allow_redirects=True)
-        response.raise_for_status()  # Raise an error for bad responses
-
-        # Create HTTP response with the file content
-        http_response = HttpResponse(
-            response.iter_content(chunk_size=8192),
-            content_type=response.headers.get(
-                "Content-Type", "application/octet-stream"
-            ),
-        )
-
-        # Set the content disposition header to prompt file download
-        http_response["Content-Disposition"] = (
-            f'attachment; filename="{quote(os.path.basename(path))}"'
-        )
-        return http_response
-
-    except requests.RequestException as e:
-        logger.error(f"Error downloading file: {e}")
-        return HttpResponse("Error downloading file", status=400)
+        except requests.RequestException as e:
+            logger.error(f"Failed to get download link: {e}")
+            return None
