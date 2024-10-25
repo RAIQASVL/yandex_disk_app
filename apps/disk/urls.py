@@ -1,5 +1,5 @@
 from django.urls import path
-from src.disk.views import FileListView, stream_file
+from apps.disk.views import FileListView, stream_file
 
 app_name = "disk"
 

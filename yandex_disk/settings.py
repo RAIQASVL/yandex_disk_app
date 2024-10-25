@@ -52,8 +52,8 @@ INSTALLED_APPS = [
     "crispy_forms",
     "crispy_bootstrap5",
     # Local
-    "src.core",
-    "src.disk",
+    "apps.core.apps.CoreConfig",
+    "apps.disk.apps.DiskConfig",
 ]
 
 MIDDLEWARE = [
@@ -67,15 +67,15 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "yandex_disk.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR / "src" / "templates",
-            BASE_DIR / "src" / "core" / "templates",
-            BASE_DIR / "src" / "disk" / "templates",
+            BASE_DIR / "apps" / "templates",
+            BASE_DIR / "apps" / "core" / "templates",
+            BASE_DIR / "apps" / "disk" / "templates",
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -138,7 +138,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "src" / "static"]
+STATICFILES_DIRS = [BASE_DIR / "apps" / "static"]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

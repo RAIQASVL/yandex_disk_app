@@ -1,5 +1,3 @@
-# src/core/views.py
-
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.views import LoginView, LogoutView
@@ -10,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 
-from src.core.forms import CustomAuthenticationForm, SignUpForm
+from apps.core.forms import CustomAuthenticationForm, SignUpForm
 
 
 class CustomLoginView(LoginView):

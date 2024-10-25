@@ -4,6 +4,6 @@ from django.contrib.auth import views as auth_views  # Add this line
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("src.core.urls")),
-    path("", include("src.disk.urls", namespace="disk")),
+    path("", include("apps.core.urls")),
+    path("", include("apps.disk.urls", namespace="disk")),
 ]
