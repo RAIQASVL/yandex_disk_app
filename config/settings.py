@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.contrib.messages import constants as message_constants
+
 
 load_dotenv()
 
@@ -70,7 +72,11 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "src" / "templates"],
+        "DIRS": [
+            BASE_DIR / "src" / "templates",
+            BASE_DIR / "src" / "core" / "templates",
+            BASE_DIR / "src" / "disk" / "templates",
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -144,9 +150,9 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # Authentication
+LOGIN_URL = "core:login"
 LOGIN_REDIRECT_URL = "disk:file_list"
-LOGOUT_REDIRECT_URL = "login"
-LOGIN_URL = "login"
+LOGOUT_REDIRECT_URL = "core:login"
 
 CACHES = {
     "default": {
@@ -155,6 +161,7 @@ CACHES = {
     }
 }
 
+MAX_ZIPFILE_SIZE = 500 * 1024 * 1024
 
 LOGGING = {
     "version": 1,
@@ -195,3 +202,13 @@ MIME_TYPES = {
     "png": "application/png",
     # Add more as needed
 }
+
+MESSAGE_TAGS = {
+    message_constants.DEBUG: "alert-info",
+    message_constants.INFO: "alert-info",
+    message_constants.SUCCESS: "alert-success",
+    message_constants.WARNING: "alert-warning",
+    message_constants.ERROR: "alert-danger",
+}
+
+MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"

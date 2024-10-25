@@ -1,0 +1,354 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block extra_head %}
+<style>
+    .sticky-form {
+        position: sticky;
+        top: 0;
+        background: white;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        border: 2px solid #0d6efd;
+    }
+    
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    .selected-row {
+        background-color: #e9ecef !important;
+    }
+    
+    .file-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 15px;
+        box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+        display: none;
+        z-index: 1000;
+    }
+    
+    .btn-action {
+        min-width: 120px;
+        transition: all 0.3s;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #0d6efd;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .file-name {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .progress {
+        height: 5px;
+        margin-top: 10px;
+        display: none;
+    }
+
+    .progress-bar {
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="sticky-form mb-4">
+        <h2 class="mb-3">Yandex.Disk File Browser</h2>
+        
+        <!-- File Browse Form -->
+        <form method="get" class="row g-3 align-items-end" id="browseForm">
+            {% csrf_token %}
+            <div class="col-md-8">
+                <label for="id_public_url" class="form-label">Yandex.Disk Public URL</label>
+                <input type="url" name="public_url" class="form-control" id="id_public_url" 
+                       value="{{ request.GET.public_url|default:'' }}" required>
+            </div>
+            <div class="col-md-2">
+                <label for="id_file_type" class="form-label">File Type</label>
+                <select name="file_type" class="form-select" id="id_file_type">
+                    <option value="">All Files</option>
+                    <option value="document" {% if request.GET.file_type == 'document' %}selected{% endif %}>Documents</option>
+                    <option value="image" {% if request.GET.file_type == 'image' %}selected{% endif %}>Images</option>
+                    <option value="video" {% if request.GET.file_type == 'video' %}selected{% endif %}>Videos</option>
+                    <option value="audio" {% if request.GET.file_type == 'audio' %}selected{% endif %}>Audio</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Browse Files
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    {% if files %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <span class="h5 mb-0">Files ({{ total_files }})</span>
+                <div class="btn-group">
+                    <button type="button" id="selectAllBtn" class="btn btn-outline-primary">
+                        <i class="fas fa-check-square"></i> Select All
+                    </button>
+                    <button type="button" id="deselectAllBtn" class="btn btn-outline-secondary">
+                        <i class="fas fa-square"></i> Deselect All
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-4">
+                                    <input type="checkbox" id="masterCheckbox" class="form-check-input">
+                                </th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                                <th class="text-end px-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in files %}
+                            <tr>
+                                <td class="px-4">
+                                    <input type="checkbox" class="form-check-input file-checkbox" 
+                                           data-download-url="{{ file.download_link|urlencode }}"
+                                           data-file-name="{{ file.name }}">
+                                </td>
+                                <td class="file-name">{{ file.name }}</td>
+                                <td>{{ file.type }}</td>
+                                <td>{{ file.size_formatted }}</td>
+                                <td class="text-end px-4">
+                                    {% if file.download_link %}
+                                        <a href="{% url 'disk:download_files' %}?download_url={{ file.download_link|urlencode }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download"></i> Download
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating action bar for bulk downloads -->
+        <div class="file-actions" id="fileActions">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span id="selectedCount" class="h5 mb-0">0 files selected</span>
+                    <button type="button" id="downloadSelected" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Download Selected Files
+                    </button>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+        </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get all necessary DOM elements
+    const masterCheckbox = document.getElementById('masterCheckbox');
+    const checkboxes = document.querySelectorAll('.file-checkbox');
+    const fileActions = document.getElementById('fileActions');
+    const selectedCount = document.getElementById('selectedCount');
+    const downloadSelected = document.getElementById('downloadSelected');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const progress = document.querySelector('.progress');
+    const progressBar = document.querySelector('.progress-bar');
+
+    // Get CSRF token
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // Function to update the selected count and UI
+    function updateSelectedCount() {
+        const selectedFiles = document.querySelectorAll('.file-checkbox:checked');
+        const count = selectedFiles.length;
+        selectedCount.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+        fileActions.style.display = count > 0 ? 'block' : 'none';
+        
+        // Update master checkbox state
+        masterCheckbox.checked = count === checkboxes.length && count > 0;
+        masterCheckbox.indeterminate = count > 0 && count < checkboxes.length;
+    }
+
+    // Function to toggle row selection style
+    function toggleRowSelection(checkbox) {
+        const row = checkbox.closest('tr');
+        if (row) {
+            row.classList.toggle('selected-row', checkbox.checked);
+        }
+    }
+
+    // Master checkbox event handler
+    masterCheckbox.addEventListener('change', function() {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+            toggleRowSelection(checkbox);
+        });
+        updateSelectedCount();
+    });
+
+    // Individual checkbox event handlers
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            toggleRowSelection(this);
+            updateSelectedCount();
+        });
+    });
+
+    // Select All button handler
+    selectAllBtn.addEventListener('click', function() {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            toggleRowSelection(checkbox);
+        });
+        masterCheckbox.checked = true;
+        masterCheckbox.indeterminate = false;
+        updateSelectedCount();
+    });
+
+    // Deselect All button handler
+    deselectAllBtn.addEventListener('click', function() {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            toggleRowSelection(checkbox);
+        });
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+        updateSelectedCount();
+    });
+
+    // Download selected files handler
+    downloadSelected.addEventListener('click', function() {
+        const selectedFiles = document.querySelectorAll('.file-checkbox:checked');
+        const files = Array.from(selectedFiles).map(checkbox => ({
+            url: checkbox.dataset.downloadUrl,
+            name: checkbox.dataset.fileName
+        }));
+
+        if (files.length === 0) {
+            alert('Please select files to download');
+            return;
+        }
+
+        // Show loading state
+        loadingOverlay.style.display = 'flex';
+        progress.style.display = 'block';
+        progressBar.style.width = '0%';
+
+        // Send download request
+        fetch('{% url "disk:download_files" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ files: files })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `yandex_files_${new Date().toISOString().slice(0,10)}.zip`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('Download error:', error);
+            alert('Error downloading files. Please try again.');
+        })
+        .finally(() => {
+            // Hide loading state
+            loadingOverlay.style.display = 'none';
+            progress.style.display = 'none';
+            progressBar.style.width = '0%';
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
